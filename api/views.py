@@ -1,5 +1,7 @@
-from rest_framework import viewsets, permissions
 from rest_framework import status
+from rest_framework import viewsets, permissions
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import permission_classes
 from rest_framework.response import Response
 
 from django.shortcuts import get_object_or_404
@@ -19,6 +21,7 @@ class IsAuthorOrReadOnly(permissions.BasePermission):
         return obj.author == request.user
 
 
+@permission_classes((IsAuthorOrReadOnly, IsAuthenticated,))
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
@@ -45,9 +48,8 @@ class PostViewSet(viewsets.ModelViewSet):
 
     def partial_update(self, request, **kwargs):
         post = get_object_or_404(self.queryset, pk=kwargs['pk'])
-        if post.author != request.user:
-            return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = PostSerializer(post, data=request.data, partial=True)
+        self.check_object_permissions(self.request, post)
         if serializer.is_valid():
             serializer.save(author=self.request.user)
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -55,12 +57,12 @@ class PostViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, **kwargs):
         post = get_object_or_404(self.queryset, pk=kwargs['pk'])
-        if post.author != request.user:
-            return Response(status=status.HTTP_403_FORBIDDEN)
+        self.check_object_permissions(self.request, post)
         post.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@permission_classes((IsAuthorOrReadOnly, ))
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
@@ -69,7 +71,6 @@ class CommentViewSet(viewsets.ModelViewSet):
         comment = Comment.objects.filter(post_id=self.kwargs['id'])
         serializer = CommentSerializer(comment, many=True)
         return Response(serializer.data)
-
 
     def perform_create(self, serializer, **kwargs):
         serializer.save(author=self.request.user, post_id=self.kwargs['id'])
@@ -82,8 +83,7 @@ class CommentViewSet(viewsets.ModelViewSet):
     def update(self, request, **kwargs):
         comment = get_object_or_404(self.queryset)
         serializer = CommentSerializer(comment, data=self.request.data, partial=True)
-        if comment.author != self.request.user:
-            return Response(status=403)
+        self.check_object_permissions(self.request, comment)
         if serializer.is_valid():
             serializer.save(author=self.request.user)
             return Response(serializer.data, status=200)
@@ -92,8 +92,7 @@ class CommentViewSet(viewsets.ModelViewSet):
     def partial_update(self, request, **kwargs):
         comment = Comment.objects.get(id=self.kwargs['pk'])
         serializer = CommentSerializer(comment, data=self.request.data, partial=True)
-        if comment.author != self.request.user:
-            return Response(status=status.HTTP_403_FORBIDDEN)
+        self.check_object_permissions(self.request, comment)
         if serializer.is_valid():
             serializer.save(author=self.request.user)
             return Response(serializer.data, status=200)
@@ -101,7 +100,6 @@ class CommentViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, **kwargs):
         comment = Comment.objects.get(id=self.kwargs['pk'])
-        if comment.author != self.request.user:
-            return Response(status=status.HTTP_403_FORBIDDEN)
+        self.check_object_permissions(self.request, comment)
         comment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
