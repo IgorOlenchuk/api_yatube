@@ -9,7 +9,7 @@ from rest_framework.authtoken import views
 
 router = DefaultRouter()
 router.register('v1/posts', PostViewSet)
-router.register('v1/posts/' + r'(?P<id>[^/.]+)' + '/comments', CommentViewSet)
+router.register('v1/posts/' + r'(?P<id>[^/.]+)' + '/comments', CommentViewSet, 'comment')
 
 urlpatterns = router.urls
 
